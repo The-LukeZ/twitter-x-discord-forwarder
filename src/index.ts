@@ -24,7 +24,8 @@ async function doTheThing(env: Env) {
       DISCORD_WEBHOOK_URL: env.DISCORD_WEBHOOK_URL ? "set" : "not set",
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
-    const client = new TwitterApi(env.BEARER_TOKEN);
+    const XClient = new TwitterApi(env.BEARER_TOKEN);
+    const client = XClient.readOnly;
 
     let lastFetched: string;
     try {
