@@ -10,10 +10,8 @@
 		"cf-typegen": "wrangler types"
 	},
 	"devDependencies": {
+		"prettier": "^3.6.2",
 		"typescript": "^5.5.2",
 		"wrangler": "^4.34.0"
-	},
-	"dependencies": {
-		"prettier": "^3.6.2"
 	}
 }
