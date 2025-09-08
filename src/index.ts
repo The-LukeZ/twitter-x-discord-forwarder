@@ -173,11 +173,12 @@ function buildDiscordPayload(
     if (medias && medias.length > 0) {
       // We assume, a tweet has 10 attachements max
       comps.push({
-        type: 12,
-        items: medias
+        type: 12, // Media Gallery
+        items: medias // Media Gallery Items
           .filter((media) => Boolean(media.url || media.preview_image_url))
           .slice(0, 10)
           .map((media) => ({
+            // Unfurled Media Item
             media: {
               url: media.url! || media.preview_image_url!,
             },
@@ -186,22 +187,27 @@ function buildDiscordPayload(
     }
     if (poll) {
       comps.push({
-        type: 10,
+        type: 10, // Text Display
         content: ["**Poll:**", ...poll.options.map((option, i) => `${i + 1}. ${option.label}`)].join("\n"),
       });
     }
 
-    comps.push({
-      type: 1,
-      components: [
-        {
-          type: 2,
-          style: 5,
-          label: "View Tweet",
-          url: tweetUrl,
-        },
-      ],
-    });
+    comps.push(
+      {
+        type: 14, // Divider
+      },
+      {
+        type: 1, // Action Row
+        components: [
+          {
+            type: 2, // Button
+            style: 5,
+            label: "View Tweet",
+            url: tweetUrl,
+          },
+        ],
+      },
+    );
 
     return {
       flags: 1 << 15,
