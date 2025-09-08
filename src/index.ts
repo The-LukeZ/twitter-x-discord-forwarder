@@ -20,10 +20,12 @@ type WebhookComponentsField = (
 export default {
   async fetch(request, env, _ctx) {
     try {
+      let didTheThing = false;
       if (request.headers.get("Authorization") === `Bearer ${env.WORKER_SECRET}`) {
         await doTheThing(env);
+        didTheThing = true;
       }
-      return new Response("The thing is running.");
+      return new Response("The thing is running." + (didTheThing ? " Did the thing." : ""), { status: 200 });
     } catch (error) {
       console.error("Error in fetch handler:", error);
       return new Response("Internal Server Error", { status: 500 });
