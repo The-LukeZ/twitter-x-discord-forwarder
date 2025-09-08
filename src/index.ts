@@ -184,6 +184,12 @@ function buildDiscordPayload(
           })),
       });
     }
+    if (poll) {
+      comps.push({
+        type: 10,
+        content: ["**Poll:**", ...poll.options.map((option, i) => `${i + 1}. ${option.label}`)].join("\n"),
+      });
+    }
 
     comps.push({
       type: 1,
@@ -192,7 +198,6 @@ function buildDiscordPayload(
           type: 2,
           style: 5,
           label: "View Tweet",
-          emoji: { name: "💬" },
           url: tweetUrl,
         },
       ],
