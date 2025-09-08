@@ -1,4 +1,10 @@
-import { TwitterApi, type TweetV2, type TweetUserTimelineV2Paginator, UserV2 } from "twitter-api-v2";
+import {
+  TwitterApi,
+  type TweetV2,
+  type TweetUserTimelineV2Paginator,
+  UserV2,
+  TwitterApiV2Settings,
+} from "twitter-api-v2";
 import {
   ActionRowData,
   APIMessageTopLevelComponent,
@@ -39,12 +45,13 @@ export default {
 
 async function doTheThing(env: Env) {
   try {
-    console.log("Set env variables:", {
+    console.log("Set env variables", {
       TARGET_USER_ID: env.TARGET_USER_ID,
       DISCORD_WEBHOOK_ID: env.DISCORD_WEBHOOK_ID ? "set" : "not set",
       DISCORD_WEBHOOK_TOKEN: env.DISCORD_WEBHOOK_TOKEN ? "set" : "not set",
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
+    TwitterApiV2Settings.debug = true;
     const XClient = new TwitterApi(env.BEARER_TOKEN, {
       plugins: [
         {
