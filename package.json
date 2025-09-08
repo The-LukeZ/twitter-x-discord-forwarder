@@ -1,17 +1,22 @@
 {
-	"name": "twitter-x-discord-forwarder",
-	"version": "0.0.0",
-	"private": true,
-	"scripts": {
-		"format": "prettier --write .",
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev --test-scheduled",
-		"start": "wrangler dev --test-scheduled",
-		"cf-typegen": "wrangler types"
-	},
-	"devDependencies": {
-		"prettier": "^3.6.2",
-		"typescript": "^5.5.2",
-		"wrangler": "^4.34.0"
-	}
+  "name": "twitter-x-discord-forwarder",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "format": "prettier --write .",
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev --test-scheduled",
+    "start": "wrangler dev --test-scheduled",
+    "cf-typegen": "wrangler types"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.1",
+    "prettier": "^3.6.2",
+    "typescript": "^5.5.2",
+    "wrangler": "^4.34.0"
+  },
+  "dependencies": {
+    "discord-api-types": "^0.38.23",
+    "twitter-api-v2": "^1.27.0"
+  }
 }
