@@ -25,7 +25,15 @@ async function doTheThing(env: Env) {
       DISCORD_WEBHOOK_TOKEN: env.DISCORD_WEBHOOK_TOKEN ? "set" : "not set",
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
-    const XClient = new TwitterApi(env.BEARER_TOKEN);
+    const XClient = new TwitterApi(env.BEARER_TOKEN, {
+      compression: "brotli",
+      plugins: [
+        {
+          onRequestError: (error) => console.error("Twitter API request error", error),
+          onResponseError: (error) => console.error("Twitter API response error", error),
+        },
+      ],
+    });
     const client = XClient.readOnly;
 
     let lastFetched: string;
@@ -43,7 +51,7 @@ async function doTheThing(env: Env) {
         since_id: lastFetched,
       });
     } catch (error) {
-      console.error("Failed to fetch user timeline from Twitter:", error);
+      console.error("Failed to fetch user timeline from Twitter", error);
       return;
     }
 
