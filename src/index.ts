@@ -56,10 +56,10 @@ async function doTheThing(env: Env) {
     let lastFetched: string;
     try {
       const lastFetchedValue = await env.TWITTER_DISCORD_FORWARDER_KV.get("last_fetched", { type: "text" });
-      lastFetched = lastFetchedValue || "2010-11-06T00:00:00-00:00.000Z";
+      lastFetched = lastFetchedValue || "2010-11-06T00:00:00.000Z";
     } catch (error) {
       console.info("Failed to get last_fetched from KV store:", error);
-      lastFetched = "2010-11-06T00:00:00-00:00.000Z";
+      lastFetched = "2010-11-06T00:00:00.000Z";
     }
 
     let userTimeline: TweetUserTimelineV2Paginator;
