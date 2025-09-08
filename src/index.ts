@@ -1,5 +1,6 @@
-import { type TweetV1, TwitterApi, type UserTimelineV1Paginator } from "twitter-api-v2";
+import { TwitterApi, type TweetV2, type TweetUserTimelineV2Paginator, UserV2 } from "twitter-api-v2";
 import { WebhookClient, type WebhookMessageCreateOptions } from "discord.js";
+import { TwitterSnowflake } from "@sapphire/snowflake";
 
 export default {
   async fetch(_req, env, _ctx) {
@@ -20,7 +21,7 @@ export default {
 async function doTheThing(env: Env) {
   try {
     console.log("Set env variables:", {
-      TARGET_USER: env.TARGET_USER,
+      TARGET_USER_ID: env.TARGET_USER_ID,
       DISCORD_WEBHOOK_ID: env.DISCORD_WEBHOOK_ID ? "set" : "not set",
       DISCORD_WEBHOOK_TOKEN: env.DISCORD_WEBHOOK_TOKEN ? "set" : "not set",
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
@@ -39,16 +40,22 @@ async function doTheThing(env: Env) {
     let lastFetched: string;
     try {
       const lastFetchedValue = await env.TWITTER_DISCORD_FORWARDER_KV.get("last_fetched");
-      lastFetched = lastFetchedValue || new Date(0).toISOString();
+      lastFetched = lastFetchedValue || TwitterSnowflake.generate({ timestamp: new Date(0) }).toString();
     } catch (error) {
       console.info("Failed to get last_fetched from KV store:", error);
-      lastFetched = new Date(0).toISOString();
+      lastFetched = TwitterSnowflake.generate({ timestamp: new Date(0) }).toString();
     }
 
-    let userTimeline: UserTimelineV1Paginator;
+    let userTimeline: TweetUserTimelineV2Paginator;
     try {
-      userTimeline = await client.v1.userTimelineByUsername(env.TARGET_USER, {
+      userTimeline = await client.v2.userTimeline(env.TARGET_USER_ID, {
         since_id: lastFetched,
+        "user.fields": ["username", "name", "profile_image_url", "url"],
+        "media.fields": ["url", "preview_image_url"],
+        "tweet.fields": ["created_at", "text", "id", "attachments", "entities"],
+        "poll.fields": ["options", "end_datetime"],
+        expansions: ["attachments.media_keys", "attachments.poll_ids", "author_id"],
+        exclude: ["replies", "retweets"],
       });
     } catch (error) {
       console.error("Failed to fetch user timeline from Twitter", error);
@@ -64,18 +71,26 @@ async function doTheThing(env: Env) {
     let successfulPosts = 0;
     let failedPosts = 0;
 
-    for (const tweet of fetchedTweets.reverse()) {
+    const finalTweets = fetchedTweets.sort(
+      (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
+    );
+    const user = userTimeline.includes.users?.find((u) => u.username === env.TARGET_USERNAME);
+    if (!user) {
+      console.error("User data not found in Twitter response");
+      return;
+    }
+    for (const tweet of finalTweets) {
       try {
-        const discordPayload = buildDiscordPayload(tweet);
+        const discordPayload = buildDiscordPayload(tweet, user);
         await new WebhookClient({
           id: env.DISCORD_WEBHOOK_ID,
           token: env.DISCORD_WEBHOOK_TOKEN,
         }).send(discordPayload);
         successfulPosts++;
-        console.log(`Successfully posted tweet ${tweet.id_str} to Discord`);
+        console.log(`Successfully posted tweet ${tweet.id} to Discord`);
       } catch (error) {
         failedPosts++;
-        console.error(`Error processing tweet ${tweet.id_str}:`, error);
+        console.error(`Error processing tweet ${tweet.id}:`, error);
         failedPosts++;
       }
     }
@@ -100,27 +115,19 @@ async function doTheThing(env: Env) {
   }
 }
 
-function buildDiscordPayload(tweet: TweetV1): WebhookMessageCreateOptions {
+function buildDiscordPayload(tweet: TweetV2, user: UserV2): WebhookMessageCreateOptions {
   try {
-    // Validate required tweet data
-    if (!tweet.user) {
-      throw new Error("Tweet missing user data");
-    }
-    if (!tweet.id_str) {
-      throw new Error("Tweet missing ID");
-    }
-
-    const description = tweet.full_text || tweet.text || "No content available";
+    const description = tweet.text || "No content available";
     const timestamp = tweet.created_at ? new Date(tweet.created_at).toISOString() : new Date().toISOString();
 
     return {
-      content: `New tweet from ${tweet.user.screen_name}: https://twitter.com/${tweet.user.screen_name}/status/${tweet.id_str}`,
+      content: `New tweet from ${user.username}: https://twitter.com/${user.username}/status/${tweet.id}`,
       embeds: [
         {
           author: {
-            name: tweet.user.name || tweet.user.screen_name || "Unknown User",
-            url: `https://twitter.com/${tweet.user.screen_name}`,
-            icon_url: tweet.user.profile_image_url_https || undefined,
+            name: user.name || "Unknown User",
+            url: `https://twitter.com/${user.username}`,
+            icon_url: user.profile_image_url,
           },
           description: description,
           timestamp: timestamp,
@@ -129,9 +136,8 @@ function buildDiscordPayload(tweet: TweetV1): WebhookMessageCreateOptions {
     };
   } catch (error) {
     console.error("Error building Discord payload:", error);
-    // Return a fallback payload
     return {
-      content: `New tweet: https://twitter.com/status/${tweet.id_str || "unknown"}`,
+      content: `New tweet: https://twitter.com/status/${tweet.id}`,
       embeds: [],
     };
   }

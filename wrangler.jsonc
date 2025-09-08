@@ -11,7 +11,7 @@
     "enabled": true,
   },
   "triggers": {
-    "crons": ["*/10 * * * *"],
+    "crons": ["*/16 * * * *"], // We HAVE to do this every 16 minutes because Twitter's API has a shitty ratelimit of 1/15min on free plan
   },
   "compatibility_flags": ["nodejs_compat"],
   "kv_namespaces": [
@@ -21,6 +21,7 @@
     },
   ],
   "vars": {
-    "TARGET_USER": "lukez_dev",
+    "TARGET_USERNAME": "lukez_dev",
+    "TARGET_USER_ID": "1281491352631611392",
   },
 }

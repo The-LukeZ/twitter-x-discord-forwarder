@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@sapphire/snowflake':
+        specifier: ^3.5.5
+        version: 3.5.5
       discord-api-types:
         specifier: ^0.38.23
         version: 0.38.23
@@ -397,6 +400,10 @@ packages:
     resolution: {integrity: sha512-jjmJywLAFoWeBi1W7994zZyiNWPIiqRRNAmSERxyg93xRGzNYvGjlZ0gR6x0F4gPRi2+0O6S71kOZYyr3cxaIQ==}
     engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
 
+  '@sapphire/snowflake@3.5.5':
+    resolution: {integrity: sha512-xzvBr1Q1c4lCe7i6sRnrofxeO1QTP/LKQ6A6qy0iB4x5yfiSfARMEQEghojzTNALDTcv8En04qYNIco9/K9eZQ==}
+    engines: {node: '>=v14.0.0', npm: '>=7.0.0'}
+
   '@sindresorhus/is@7.0.2':
     resolution: {integrity: sha512-d9xRovfKNz1SKieM0qJdO+PQonjnnIfSNWfHYnBSJ9hkjm0ZPw6HlxscDXYstp3z+7V2GOFHc+J0CYrYTjqCJw==}
     engines: {node: '>=18'}
@@ -665,7 +672,7 @@ snapshots:
       '@discordjs/collection': 2.1.1
       '@discordjs/util': 1.1.1
       '@sapphire/async-queue': 1.5.5
-      '@sapphire/snowflake': 3.5.3
+      '@sapphire/snowflake': 3.5.5
       '@vladfrangu/async_event_emitter': 2.4.6
       discord-api-types: 0.38.23
       magic-bytes.js: 1.12.1
@@ -873,6 +880,8 @@ snapshots:
       lodash: 4.17.21
 
   '@sapphire/snowflake@3.5.3': {}
+
+  '@sapphire/snowflake@3.5.5': {}
 
   '@sindresorhus/is@7.0.2': {}
 
