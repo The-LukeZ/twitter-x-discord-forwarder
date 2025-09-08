@@ -1,6 +1,22 @@
 import { TwitterApi, type TweetV2, type TweetUserTimelineV2Paginator, UserV2 } from "twitter-api-v2";
-import { WebhookClient, type WebhookMessageCreateOptions } from "discord.js";
-import { TwitterSnowflake } from "@sapphire/snowflake";
+import {
+  ActionRowData,
+  APIMessageTopLevelComponent,
+  JSONEncodable,
+  MessageActionRowComponentBuilder,
+  MessageActionRowComponentData,
+  TopLevelComponentData,
+  WebhookClient,
+  type WebhookMessageCreateOptions,
+} from "discord.js";
+import { TimelineV2Paginator } from "twitter-api-v2/dist/esm/paginators/v2.paginator";
+
+type WebhookComponentsField = (
+  | APIMessageTopLevelComponent
+  | JSONEncodable<APIMessageTopLevelComponent>
+  | TopLevelComponentData
+  | ActionRowData<MessageActionRowComponentData | MessageActionRowComponentBuilder>
+)[];
 
 export default {
   async fetch(_req, env, _ctx) {
@@ -39,17 +55,17 @@ async function doTheThing(env: Env) {
 
     let lastFetched: string;
     try {
-      const lastFetchedValue = await env.TWITTER_DISCORD_FORWARDER_KV.get("last_fetched");
-      lastFetched = lastFetchedValue || TwitterSnowflake.generate({ timestamp: new Date(0) }).toString();
+      const lastFetchedValue = await env.TWITTER_DISCORD_FORWARDER_KV.get("last_fetched", { type: "text" });
+      lastFetched = lastFetchedValue || "2010-11-06T00:00:00-00:00.000Z";
     } catch (error) {
       console.info("Failed to get last_fetched from KV store:", error);
-      lastFetched = TwitterSnowflake.generate({ timestamp: new Date(0) }).toString();
+      lastFetched = "2010-11-06T00:00:00-00:00.000Z";
     }
 
     let userTimeline: TweetUserTimelineV2Paginator;
     try {
       userTimeline = await client.v2.userTimeline(env.TARGET_USER_ID, {
-        since_id: lastFetched,
+        start_time: lastFetched,
         "user.fields": ["username", "name", "profile_image_url", "url"],
         "media.fields": ["url", "preview_image_url"],
         "tweet.fields": ["created_at", "text", "id", "attachments", "entities"],
@@ -81,7 +97,7 @@ async function doTheThing(env: Env) {
     }
     for (const tweet of finalTweets) {
       try {
-        const discordPayload = buildDiscordPayload(tweet, user);
+        const discordPayload = buildDiscordPayload(userTimeline, tweet, user);
         await new WebhookClient({
           id: env.DISCORD_WEBHOOK_ID,
           token: env.DISCORD_WEBHOOK_TOKEN,
@@ -102,7 +118,9 @@ async function doTheThing(env: Env) {
     // Only update last_fetched if we processed tweets successfully
     if (successfulPosts > 0) {
       try {
-        await env.TWITTER_DISCORD_FORWARDER_KV.put("last_fetched", new Date().toISOString());
+        await env.TWITTER_DISCORD_FORWARDER_KV.put("last_fetched", new Date().toISOString(), {
+          metadata: { updatedBy: "worker" },
+        });
       } catch (error) {
         console.error("Failed to update last_fetched in KV store:", error);
       }
@@ -115,24 +133,75 @@ async function doTheThing(env: Env) {
   }
 }
 
-function buildDiscordPayload(tweet: TweetV2, user: UserV2): WebhookMessageCreateOptions {
+function buildDiscordPayload(
+  timeline: TweetUserTimelineV2Paginator,
+  tweet: TweetV2,
+  user: UserV2,
+): WebhookMessageCreateOptions {
   try {
-    const description = tweet.text || "No content available";
-    const timestamp = tweet.created_at ? new Date(tweet.created_at).toISOString() : new Date().toISOString();
+    const description = tweet.text;
+    const timestamp = tweet.created_at
+      ? new Date(tweet.created_at)
+      : new Date("2010-11-06T00:00:00-00:00.000Z");
+    const unixTimestamp = Math.floor(timestamp.getTime() / 1000);
+    const medias = timeline.includes.medias(tweet);
+    const poll = timeline.includes.poll(tweet);
+    const tweetUrl = `https://x.com/${user.username}/status/${tweet.id}`;
 
-    return {
-      content: `New tweet from ${user.username}: https://twitter.com/${user.username}/status/${tweet.id}`,
-      embeds: [
-        {
-          author: {
-            name: user.name || "Unknown User",
-            url: `https://twitter.com/${user.username}`,
-            icon_url: user.profile_image_url,
+    const comps: WebhookComponentsField = [
+      {
+        type: 17, // Container
+        accent_color: 2007544, // similar to Twitter blue
+        components: [
+          {
+            type: 10, // Text Display
+            content: `### New Tweet from [@${user.username}](https://x.com/${user.username}) <t:${unixTimestamp}:R>`,
           },
-          description: description,
-          timestamp: timestamp,
+          {
+            type: 14, // Divider
+          },
+        ],
+      },
+    ];
+
+    if (description) {
+      comps.push({
+        type: 10,
+        content: description,
+      });
+    }
+    if (medias && medias.length > 0) {
+      // We assume, a tweet has 10 attachements max
+      comps.push({
+        type: 12,
+        items: medias
+          .filter((media) => Boolean(media.url || media.preview_image_url))
+          .slice(0, 10)
+          .map((media) => ({
+            media: {
+              url: media.url! || media.preview_image_url!,
+            },
+          })),
+      });
+    }
+
+    comps.push({
+      type: 1,
+      components: [
+        {
+          type: 2,
+          style: 5,
+          label: "View Tweet",
+          emoji: { name: "💬" },
+          url: tweetUrl,
         },
       ],
+    });
+
+    return {
+      flags: 1 << 15,
+      withComponents: true,
+      components: comps,
     };
   } catch (error) {
     console.error("Error building Discord payload:", error);

@@ -16,7 +16,6 @@
     "wrangler": "^4.34.0"
   },
   "dependencies": {
-    "@sapphire/snowflake": "^3.5.5",
     "discord-api-types": "^0.38.23",
     "discord.js": "^14.22.1",
     "twitter-api-v2": "^1.27.0"

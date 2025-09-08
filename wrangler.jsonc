@@ -11,7 +11,7 @@
     "enabled": true,
   },
   "triggers": {
-    "crons": ["*/16 * * * *"], // We HAVE to do this every 16 minutes because Twitter's API has a shitty ratelimit of 1/15min on free plan
+    "crons": ["*/30 * * * *"], // We run this every 30 minutes
   },
   "compatibility_flags": ["nodejs_compat"],
   "kv_namespaces": [
