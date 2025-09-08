@@ -1,7 +1,5 @@
 import { type TweetV1, TwitterApi, type UserTimelineV1Paginator } from "twitter-api-v2";
-import type { RESTPostAPIWebhookWithTokenJSONBody } from "discord-api-types/v10";
-import { WebhooksAPI } from "@discordjs/core";
-import { REST } from "@discordjs/rest";
+import { WebhookClient, type WebhookMessageCreateOptions } from "discord.js";
 
 export default {
   async fetch(_req, env, _ctx) {
@@ -61,11 +59,10 @@ async function doTheThing(env: Env) {
     for (const tweet of fetchedTweets.reverse()) {
       try {
         const discordPayload = buildDiscordPayload(tweet);
-        await new WebhooksAPI(new REST({ version: "10" })).execute(
-          env.DISCORD_WEBHOOK_ID,
-          env.DISCORD_WEBHOOK_TOKEN,
-          { ...discordPayload },
-        );
+        await new WebhookClient({
+          id: env.DISCORD_WEBHOOK_ID,
+          token: env.DISCORD_WEBHOOK_TOKEN,
+        }).send(discordPayload);
         successfulPosts++;
         console.log(`Successfully posted tweet ${tweet.id_str} to Discord`);
       } catch (error) {
@@ -95,7 +92,7 @@ async function doTheThing(env: Env) {
   }
 }
 
-function buildDiscordPayload(tweet: TweetV1) {
+function buildDiscordPayload(tweet: TweetV1): WebhookMessageCreateOptions {
   try {
     // Validate required tweet data
     if (!tweet.user) {
@@ -121,13 +118,13 @@ function buildDiscordPayload(tweet: TweetV1) {
           timestamp: timestamp,
         },
       ],
-    } as RESTPostAPIWebhookWithTokenJSONBody;
+    };
   } catch (error) {
     console.error("Error building Discord payload:", error);
     // Return a fallback payload
     return {
       content: `New tweet: https://twitter.com/status/${tweet.id_str || "unknown"}`,
       embeds: [],
-    } as RESTPostAPIWebhookWithTokenJSONBody;
+    };
   }
 }
