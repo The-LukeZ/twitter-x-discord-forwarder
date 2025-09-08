@@ -73,6 +73,7 @@ async function doTheThing(env: Env) {
         expansions: ["attachments.media_keys", "attachments.poll_ids", "author_id"],
         exclude: ["replies", "retweets"],
       });
+      console.log("Fetched user timeline from Twitter", userTimeline.data);
     } catch (error) {
       console.error("Failed to fetch user timeline from Twitter", error);
       return;
