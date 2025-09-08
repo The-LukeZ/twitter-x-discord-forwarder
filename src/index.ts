@@ -44,7 +44,6 @@ async function doTheThing(env: Env) {
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
     const XClient = new TwitterApi(env.BEARER_TOKEN, {
-      compression: "brotli",
       plugins: [
         {
           onRequestError: (error) => console.error("Twitter API request error", error),
