@@ -9,7 +9,6 @@ import {
   WebhookClient,
   type WebhookMessageCreateOptions,
 } from "discord.js";
-import { TimelineV2Paginator } from "twitter-api-v2/dist/esm/paginators/v2.paginator";
 
 type WebhookComponentsField = (
   | APIMessageTopLevelComponent
@@ -19,9 +18,11 @@ type WebhookComponentsField = (
 )[];
 
 export default {
-  async fetch(_req, env, _ctx) {
+  async fetch(request, env, _ctx) {
     try {
-      await doTheThing(env);
+      if (request.headers.get("Authorization") === `Bearer ${env.WORKER_SECRET}`) {
+        await doTheThing(env);
+      }
       return new Response("The thing is running.");
     } catch (error) {
       console.error("Error in fetch handler:", error);
