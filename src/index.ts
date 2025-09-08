@@ -1,5 +1,7 @@
 import { type TweetV1, TwitterApi, type UserTimelineV1Paginator } from "twitter-api-v2";
-import type { RESTPostAPIChannelMessageJSONBody } from "discord-api-types/v10";
+import type { RESTPostAPIWebhookWithTokenJSONBody } from "discord-api-types/v10";
+import { WebhooksAPI } from "@discordjs/core";
+import { REST } from "@discordjs/rest";
 
 export default {
   async fetch(_req, env, _ctx) {
@@ -21,7 +23,8 @@ async function doTheThing(env: Env) {
   try {
     console.log("Set env variables:", {
       TARGET_USER: env.TARGET_USER,
-      DISCORD_WEBHOOK_URL: env.DISCORD_WEBHOOK_URL ? "set" : "not set",
+      DISCORD_WEBHOOK_ID: env.DISCORD_WEBHOOK_ID ? "set" : "not set",
+      DISCORD_WEBHOOK_TOKEN: env.DISCORD_WEBHOOK_TOKEN ? "set" : "not set",
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
     const XClient = new TwitterApi(env.BEARER_TOKEN);
@@ -58,27 +61,15 @@ async function doTheThing(env: Env) {
     for (const tweet of fetchedTweets.reverse()) {
       try {
         const discordPayload = buildDiscordPayload(tweet);
-        const response = await fetch(env.DISCORD_WEBHOOK_URL, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(discordPayload),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(
-            `Failed to send Discord message for tweet ${tweet.id_str}:`,
-            response.status,
-            errorText,
-          );
-          failedPosts++;
-        } else {
-          successfulPosts++;
-          console.log(`Successfully posted tweet ${tweet.id_str} to Discord`);
-        }
+        await new WebhooksAPI(new REST({ version: "10" })).execute(
+          env.DISCORD_WEBHOOK_ID,
+          env.DISCORD_WEBHOOK_TOKEN,
+          { ...discordPayload },
+        );
+        successfulPosts++;
+        console.log(`Successfully posted tweet ${tweet.id_str} to Discord`);
       } catch (error) {
+        failedPosts++;
         console.error(`Error processing tweet ${tweet.id_str}:`, error);
         failedPosts++;
       }
@@ -130,13 +121,13 @@ function buildDiscordPayload(tweet: TweetV1) {
           timestamp: timestamp,
         },
       ],
-    } as RESTPostAPIChannelMessageJSONBody;
+    } as RESTPostAPIWebhookWithTokenJSONBody;
   } catch (error) {
     console.error("Error building Discord payload:", error);
     // Return a fallback payload
     return {
       content: `New tweet: https://twitter.com/status/${tweet.id_str || "unknown"}`,
       embeds: [],
-    } as RESTPostAPIChannelMessageJSONBody;
+    } as RESTPostAPIWebhookWithTokenJSONBody;
   }
 }

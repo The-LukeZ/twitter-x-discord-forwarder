@@ -16,6 +16,8 @@
     "wrangler": "^4.34.0"
   },
   "dependencies": {
+    "@discordjs/core": "^2.2.1",
+    "@discordjs/rest": "^2.6.0",
     "discord-api-types": "^0.38.23",
     "twitter-api-v2": "^1.27.0"
   }
