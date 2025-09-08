@@ -13,6 +13,11 @@ export default {
 
   async scheduled(controller, env, ctx) {
     try {
+      console.log("Set env variables:", {
+        TARGET_USER: env.TARGET_USER,
+        DISCORD_WEBHOOK_URL: env.DISCORD_WEBHOOK_URL ? "set" : "not set",
+        BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
+      });
       const twitterClient = new TwitterApi(env.BEARER_TOKEN);
       const client = twitterClient.readOnly;
 
