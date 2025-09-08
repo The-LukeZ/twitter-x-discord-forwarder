@@ -20,4 +20,7 @@
       "id": "b75cff498d414afcb8e46ff891e0a31e",
     },
   ],
+  "vars": {
+    "TARGET_USER": "lukez_dev",
+  },
 }
