@@ -1,30 +1,9 @@
-import {
-  ActionRowData,
-  APIContainerComponent,
-  APIMessageTopLevelComponent,
-  ContainerComponentData,
-  JSONEncodable,
-  MessageActionRowComponentBuilder,
-  MessageActionRowComponentData,
-  TopLevelComponentData,
-  WebhookClient,
-  type WebhookMessageCreateOptions,
-} from "discord.js";
+import { APIContainerComponent, APIMessageTopLevelComponent } from "discord-api-types/v10";
 import ky from "ky";
 
-type WebhookComponentsField = (
-  | APIMessageTopLevelComponent
-  | JSONEncodable<APIMessageTopLevelComponent>
-  | TopLevelComponentData
-  | ActionRowData<MessageActionRowComponentData | MessageActionRowComponentBuilder>
-)[];
+type WebhookComponentsField = APIMessageTopLevelComponent[];
 
-type ContainerComponentsField = (
-  | Exclude<APIMessageTopLevelComponent, APIContainerComponent>
-  | JSONEncodable<Exclude<APIMessageTopLevelComponent, APIContainerComponent>>
-  | Exclude<TopLevelComponentData, ContainerComponentData>
-  | ActionRowData<MessageActionRowComponentData | MessageActionRowComponentBuilder>
-)[];
+type ContainerComponentsField = Exclude<APIMessageTopLevelComponent, APIContainerComponent>[];
 
 type XUser = { id: string; username: string; name: string; profile_image_url?: string; url?: string };
 
@@ -158,13 +137,17 @@ async function doTheThing(env: Env) {
       console.error("User data not found in Twitter response");
       return;
     }
+
+    const whClient = ky.create({
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
     for (const tweet of finalTweets) {
       try {
         const discordPayload = buildDiscordPayload(userTimeline, tweet, user);
-        await new WebhookClient({
-          id: env.DISCORD_WEBHOOK_ID,
-          token: env.DISCORD_WEBHOOK_TOKEN,
-        }).send(discordPayload);
+        await whClient.post(buildWebhookUrl(env), { json: discordPayload });
         successfulPosts++;
         console.log(`Successfully posted tweet ${tweet.id} to Discord`);
       } catch (error) {
@@ -195,11 +178,14 @@ async function doTheThing(env: Env) {
   }
 }
 
-function buildDiscordPayload(
-  timeline: GetPostsResponse,
-  tweet: GetPostsResponse["data"][0],
-  user: XUser,
-): WebhookMessageCreateOptions {
+function buildWebhookUrl(env: Env) {
+  if (!env.DISCORD_WEBHOOK_ID || !env.DISCORD_WEBHOOK_TOKEN) {
+    throw new Error("Discord webhook ID or token is not set in environment variables");
+  }
+  return `https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK_ID}/${env.DISCORD_WEBHOOK_TOKEN}?with_components=true`;
+}
+
+function buildDiscordPayload(timeline: GetPostsResponse, tweet: GetPostsResponse["data"][0], user: XUser) {
   try {
     const description = tweet.text;
     const timestamp = tweet.created_at
@@ -271,14 +257,12 @@ function buildDiscordPayload(
 
     return {
       flags: 1 << 15,
-      withComponents: true,
       components: comps,
     };
   } catch (error) {
     console.error("Error building Discord payload:", error);
     return {
       content: `New tweet: https://twitter.com/status/${tweet.id}`,
-      embeds: [],
     };
   }
 }
