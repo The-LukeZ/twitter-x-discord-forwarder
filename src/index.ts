@@ -213,7 +213,11 @@ function buildWebhookUrl(env: Env) {
   if (!env.DISCORD_WEBHOOK_ID || !env.DISCORD_WEBHOOK_TOKEN) {
     throw new Error("Discord webhook ID or token is not set in environment variables");
   }
-  return `https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK_ID}/${env.DISCORD_WEBHOOK_TOKEN}?with_components=true`;
+  // We have to assert any here, because if it's not given, it should just be ignored so the env-type has to be dynamic.
+  const threadId = (env as any).DISCORD_WEBHOOK_THREAD_ID
+    ? `&thread_id=${(env as any).DISCORD_WEBHOOK_THREAD_ID}`
+    : "";
+  return `https://discord.com/api/webhooks/${env.DISCORD_WEBHOOK_ID}/${env.DISCORD_WEBHOOK_TOKEN}?with_components=true${threadId}`;
 }
 
 function buildDiscordPayload(timeline: GetPostsResponse, tweet: GetPostsResponse["data"][0], user: XUser) {

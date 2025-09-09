@@ -9,7 +9,7 @@ Forwards Tweets (from X) to Discord Webhooks
 - Have nodejs and pnpm installed (v20+ recommended)
 - Have a Cloudflare account
 - Have a Twitter Developer account with access to the Twitter API v2 and a Bearer Token
-- Have a webhook, created by a bot in your Discord server (I recommend checking out [Discohook Utils](https://canary.discord.com/oauth2/authorize?client_id=792842038332358656&permissions=275684617280&scope=bot+applications.commands) to create a webhook and view the webhook credentials)
+- Have a webhook in the channel you want to forward tweets to
 
 ## Steps
 
@@ -22,13 +22,16 @@ Forwards Tweets (from X) to Discord Webhooks
    - `BEARER_TOKEN`: Your Twitter API Bearer Token
    - `DISCORD_WEBHOOK_ID`: Your Discord Webhook ID
    - `DISCORD_WEBHOOK_TOKEN`: Your Discord Webhook Token
+   - `DISCORD_WEBHOOK_THREAD_ID`: (Optional) Your Discord Webhook Thread ID if you want to post in a specific thread/post.
    - `WORKER_SECRET`: A random string to secure your endpoint (for manual triggering) If not set, manual triggering will be disabled.
 
-5. Create a KV namespace in Cloudflare and bind it to the Worker in `wrangler.jsonc` as `TWITTER_DISCORD_FORWARDER_KV` (literally just )
+5. Create a KV namespace in Cloudflare and bind it to the Worker in `wrangler.jsonc` as `TWITTER_DISCORD_FORWARDER_KV`.
 
-5. Login with Wrangler using `pnpx wrangler login`.
+6. Fill in the other placeholders in `wrangler.jsonc`.
 
-6. Deploy the Worker with `pnpm run deploy`.
+7. Login with Wrangler using `pnpx wrangler login`.
+
+8. Deploy the Worker with `pnpm run deploy`.
 
 ## License
 
