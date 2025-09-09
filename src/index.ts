@@ -86,6 +86,7 @@ async function doTheThing(env: Env) {
         delay: (count) => 1000 * count,
         limit: 2,
         maxRetryAfter: 10,
+        afterStatusCodes: [413, 500, 502],
       },
       timeout: 10_000,
       hooks: {
