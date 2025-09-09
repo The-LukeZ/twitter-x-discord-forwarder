@@ -11,7 +11,7 @@
     "enabled": true,
   },
   "triggers": {
-    "crons": ["*/30 * * * *"], // We run this every 30 minutes
+    "crons": ["*/20 * * * *"], // We run this every 30 minutes
   },
   "compatibility_flags": ["nodejs_compat"],
   "kv_namespaces": [
