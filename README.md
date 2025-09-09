@@ -31,7 +31,9 @@ Forwards Tweets (from X) to Discord Webhooks
 
 7. Login with Wrangler using `pnpx wrangler login`.
 
-8. Deploy the Worker with `pnpm run deploy`.
+8. Run `pnpm cf-typegen` to generate the types for the environment variables. (Important for TypeScript to recognize the env variables)
+
+9. Deploy the Worker with `pnpm run deploy`.
 
 ## License
 
