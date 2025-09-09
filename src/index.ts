@@ -32,7 +32,7 @@ export default {
   async fetch(request, env, _ctx) {
     try {
       let didTheThing = false;
-      if (request.headers.get("Authorization") === `Bearer ${env.WORKER_SECRET}`) {
+      if (env.WORKER_SECRET && request.headers.get("Authorization") === `Bearer ${env.WORKER_SECRET}`) {
         await doTheThing(env);
         didTheThing = true;
       }
