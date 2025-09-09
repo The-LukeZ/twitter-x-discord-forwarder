@@ -83,12 +83,11 @@ async function doTheThing(env: Env) {
         Authorization: `Bearer ${env.BEARER_TOKEN}`,
       },
       retry: {
-        delay: (count) => 1000 * count,
-        limit: 2,
-        maxRetryAfter: 10,
+        delay: () => 4000,
+        limit: 1,
         afterStatusCodes: [413, 500, 502],
       },
-      timeout: 10_000,
+      timeout: 5_000,
       hooks: {
         beforeRequest: [
           (req, options) => {
