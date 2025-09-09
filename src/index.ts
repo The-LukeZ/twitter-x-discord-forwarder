@@ -1,6 +1,8 @@
 import {
   ActionRowData,
+  APIContainerComponent,
   APIMessageTopLevelComponent,
+  ContainerComponentData,
   JSONEncodable,
   MessageActionRowComponentBuilder,
   MessageActionRowComponentData,
@@ -14,6 +16,13 @@ type WebhookComponentsField = (
   | APIMessageTopLevelComponent
   | JSONEncodable<APIMessageTopLevelComponent>
   | TopLevelComponentData
+  | ActionRowData<MessageActionRowComponentData | MessageActionRowComponentBuilder>
+)[];
+
+type ContainerComponentsField = (
+  | Exclude<APIMessageTopLevelComponent, APIContainerComponent>
+  | JSONEncodable<Exclude<APIMessageTopLevelComponent, APIContainerComponent>>
+  | Exclude<TopLevelComponentData, ContainerComponentData>
   | ActionRowData<MessageActionRowComponentData | MessageActionRowComponentBuilder>
 )[];
 
@@ -161,7 +170,6 @@ async function doTheThing(env: Env) {
       } catch (error) {
         failedPosts++;
         console.error(`Error processing tweet ${tweet.id}:`, error);
-        failedPosts++;
       }
     }
 
@@ -204,31 +212,25 @@ function buildDiscordPayload(
     const poll = timeline.includes?.polls?.find((p) => tweet.attachments?.poll_ids?.includes(p.id));
     const tweetUrl = `https://x.com/${user.username}/status/${tweet.id}`;
 
-    const comps: WebhookComponentsField = [
+    const containerComps: ContainerComponentsField = [
       {
-        type: 17, // Container
-        accent_color: 2007544, // similar to Twitter blue
-        components: [
-          {
-            type: 10, // Text Display
-            content: `### New Tweet from [@${user.username}](https://x.com/${user.username}) <t:${unixTimestamp}:R>`,
-          },
-          {
-            type: 14, // Divider
-          },
-        ],
+        type: 10, // Text Display
+        content: `### New Tweet from [@${user.username}](https://x.com/${user.username}) <t:${unixTimestamp}:R>`,
+      },
+      {
+        type: 14, // Divider
       },
     ];
 
     if (description) {
-      comps.push({
+      containerComps.push({
         type: 10,
         content: description,
       });
     }
     if (medias && medias.length > 0) {
       // We assume, a tweet has 10 attachements max
-      comps.push({
+      containerComps.push({
         type: 12, // Media Gallery
         items: medias // Media Gallery Items
           .filter((media) => Boolean(media.url || media.preview_image_url))
@@ -242,15 +244,17 @@ function buildDiscordPayload(
       });
     }
     if (poll) {
-      comps.push({
+      containerComps.push({
         type: 10, // Text Display
         content: ["**Poll:**", ...poll.options.map((option, i) => `${i + 1}. ${option.label}`)].join("\n"),
       });
     }
 
-    comps.push(
+    const comps: WebhookComponentsField = [
       {
-        type: 14, // Divider
+        type: 17, // Container
+        accent_color: 2007544, // similar to Twitter blue
+        components: containerComps,
       },
       {
         type: 1, // Action Row
@@ -263,7 +267,7 @@ function buildDiscordPayload(
           },
         ],
       },
-    );
+    ];
 
     return {
       flags: 1 << 15,
