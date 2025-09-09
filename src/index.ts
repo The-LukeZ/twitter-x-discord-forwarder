@@ -1,11 +1,4 @@
 import {
-  TwitterApi,
-  type TweetV2,
-  type TweetUserTimelineV2Paginator,
-  UserV2,
-  TwitterApiV2Settings,
-} from "twitter-api-v2";
-import {
   ActionRowData,
   APIMessageTopLevelComponent,
   JSONEncodable,
@@ -15,6 +8,7 @@ import {
   WebhookClient,
   type WebhookMessageCreateOptions,
 } from "discord.js";
+import ky from "ky";
 
 type WebhookComponentsField = (
   | APIMessageTopLevelComponent
@@ -22,6 +16,29 @@ type WebhookComponentsField = (
   | TopLevelComponentData
   | ActionRowData<MessageActionRowComponentData | MessageActionRowComponentBuilder>
 )[];
+
+type XUser = { id: string; username: string; name: string; profile_image_url?: string; url?: string };
+
+type GetPostsResponse = {
+  data: Array<{
+    id: string;
+    text: string;
+    created_at?: string;
+    author_id?: string;
+    attachments?: { media_keys?: string[]; poll_ids?: string[] };
+    entities?: { mentions?: Array<{ username: string }> };
+  }>;
+  includes?: {
+    users?: Array<XUser>;
+    media?: Array<{ media_key: string; url?: string; preview_image_url?: string }>;
+    polls?: Array<{
+      id: string;
+      options: Array<{ label: string; votes: number; position: number }>;
+      end_datetime?: string;
+    }>;
+  };
+  meta: { result_count: number; newest_id?: string; oldest_id?: string; next_token?: string };
+};
 
 export default {
   async fetch(request, env, _ctx) {
@@ -51,16 +68,6 @@ async function doTheThing(env: Env) {
       DISCORD_WEBHOOK_TOKEN: env.DISCORD_WEBHOOK_TOKEN ? "set" : "not set",
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
-    TwitterApiV2Settings.debug = true;
-    const XClient = new TwitterApi(env.BEARER_TOKEN, {
-      plugins: [
-        {
-          onRequestError: (error) => console.error("Twitter API request error", error),
-          onResponseError: (error) => console.error("Twitter API response error", error),
-        },
-      ],
-    });
-    const client = XClient.readOnly;
 
     let lastFetched: string;
     try {
@@ -71,24 +78,61 @@ async function doTheThing(env: Env) {
       lastFetched = "2010-11-06T00:00:00.000Z";
     }
 
-    let userTimeline: TweetUserTimelineV2Paginator;
+    const client = ky.create({
+      headers: {
+        Authorization: `Bearer ${env.BEARER_TOKEN}`,
+      },
+      retry: {
+        delay: (count) => 1000 * count,
+        limit: 2,
+        maxRetryAfter: 10,
+      },
+      timeout: 10_000,
+      hooks: {
+        beforeRequest: [
+          (req, options) => {
+            console.log("Full URL: " + req.url, options);
+          },
+        ],
+        afterResponse: [
+          (_req, _options, res) => {
+            console.log("Response status:", res.status);
+          },
+        ],
+      },
+    });
+
+    let userTimeline: GetPostsResponse;
     try {
-      userTimeline = await client.v2.userTimeline(env.TARGET_USER_ID, {
+      const searchParams = new URLSearchParams({
+        "user.fields": "username,name,profile_image_url,url",
+        "media.fields": "url,preview_image_url",
+        "tweet.fields": "created_at,text,id,attachments,entities",
+        "poll.fields": "options,end_datetime",
+        expansions: "attachments.media_keys,attachments.poll_ids,author_id",
+        exclude: "replies,retweets",
         start_time: lastFetched,
-        "user.fields": ["username", "name", "profile_image_url", "url"],
-        "media.fields": ["url", "preview_image_url"],
-        "tweet.fields": ["created_at", "text", "id", "attachments", "entities"],
-        "poll.fields": ["options", "end_datetime"],
-        expansions: ["attachments.media_keys", "attachments.poll_ids", "author_id"],
-        exclude: ["replies", "retweets"],
+        max_results: "100",
       });
+      const response = await client.get<GetPostsResponse>(
+        `https://api.x.com/2/users/${env.TARGET_USER_ID}/tweets`,
+        {
+          searchParams: searchParams,
+        },
+      );
+
+      if (!response.ok) {
+        throw new Error(`Twitter API request failed: ${response.status} ${response.statusText}`);
+      }
+
+      userTimeline = await response.json();
       console.log("Fetched user timeline from Twitter", userTimeline.data);
     } catch (error) {
       console.error("Failed to fetch user timeline from Twitter", error);
       return;
     }
 
-    const fetchedTweets = userTimeline.tweets;
+    const fetchedTweets = userTimeline.data;
     if (!fetchedTweets || fetchedTweets.length === 0) {
       console.log("No new tweets found");
       return;
@@ -100,7 +144,7 @@ async function doTheThing(env: Env) {
     const finalTweets = fetchedTweets.sort(
       (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime(),
     );
-    const user = userTimeline.includes.users?.find((u) => u.username === env.TARGET_USERNAME);
+    const user = userTimeline.includes?.users?.find((u) => u.username === env.TARGET_USERNAME);
     if (!user) {
       console.error("User data not found in Twitter response");
       return;
@@ -144,9 +188,9 @@ async function doTheThing(env: Env) {
 }
 
 function buildDiscordPayload(
-  timeline: TweetUserTimelineV2Paginator,
-  tweet: TweetV2,
-  user: UserV2,
+  timeline: GetPostsResponse,
+  tweet: GetPostsResponse["data"][0],
+  user: XUser,
 ): WebhookMessageCreateOptions {
   try {
     const description = tweet.text;
@@ -154,8 +198,10 @@ function buildDiscordPayload(
       ? new Date(tweet.created_at)
       : new Date("2010-11-06T00:00:00-00:00.000Z");
     const unixTimestamp = Math.floor(timestamp.getTime() / 1000);
-    const medias = timeline.includes.medias(tweet);
-    const poll = timeline.includes.poll(tweet);
+    const medias = timeline.includes?.media?.filter((media) =>
+      tweet.attachments?.media_keys?.includes(media.media_key),
+    );
+    const poll = timeline.includes?.polls?.find((p) => tweet.attachments?.poll_ids?.includes(p.id));
     const tweetUrl = `https://x.com/${user.username}/status/${tweet.id}`;
 
     const comps: WebhookComponentsField = [
