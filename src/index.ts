@@ -57,13 +57,14 @@ async function doTheThing(env: Env) {
       BEARER_TOKEN: env.BEARER_TOKEN ? "set" : "not set",
     });
 
-    let lastFetched: string;
+    let lastFetchedPostId: string | null = null;
     try {
-      const lastFetchedValue = await env.TWITTER_DISCORD_FORWARDER_KV.get("last_fetched", { type: "text" });
-      lastFetched = lastFetchedValue || "2010-11-06T00:00:00.000Z";
+      const lastFetchedValue = await env.TWITTER_DISCORD_FORWARDER_KV.get("last_fetched_post", {
+        type: "text",
+      });
+      lastFetchedPostId = lastFetchedValue;
     } catch (error) {
       console.info("Failed to get last_fetched from KV store:", error);
-      lastFetched = "2010-11-06T00:00:00.000Z";
     }
 
     const client = ky.create({
@@ -99,9 +100,14 @@ async function doTheThing(env: Env) {
         "poll.fields": "options,end_datetime",
         expansions: "attachments.media_keys,attachments.poll_ids,author_id",
         exclude: "replies,retweets",
-        start_time: lastFetched,
         max_results: "100",
       });
+      if (lastFetchedPostId) {
+        searchParams.set("since_id", lastFetchedPostId);
+      } else {
+        // Return the posts of the last month
+        searchParams.set("start_time", new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
+      }
       const response = await client.get<GetPostsResponse>(
         `https://api.x.com/2/users/${env.TARGET_USER_ID}/tweets`,
         {
@@ -127,6 +133,7 @@ async function doTheThing(env: Env) {
     }
 
     let successfulPosts = 0;
+    let latestSuccessfulPost = "";
     let failedPosts = 0;
 
     const finalTweets = fetchedTweets.sort(
@@ -144,12 +151,36 @@ async function doTheThing(env: Env) {
       },
     });
 
-    for (const tweet of finalTweets) {
+    for (let i = 0; i < finalTweets.length; i++) {
+      const tweet = finalTweets[i];
+
       try {
         const discordPayload = buildDiscordPayload(userTimeline, tweet, user);
-        await whClient.post(buildWebhookUrl(env), { json: discordPayload });
+        const response = await whClient.post(buildWebhookUrl(env), { json: discordPayload });
+
+        // Check for Discord rate limit headers
+        const remainingRequests = response.headers.get("X-RateLimit-Remaining");
+        const resetTime = response.headers.get("X-RateLimit-Reset");
+        const resetAfter = response.headers.get("X-RateLimit-Reset-After");
+
         successfulPosts++;
+        latestSuccessfulPost = tweet.id;
         console.log(`Successfully posted tweet ${tweet.id} to Discord`);
+
+        // If we're approaching rate limit, wait before next request
+        if (remainingRequests && parseInt(remainingRequests) <= 1 && i < finalTweets.length - 1) {
+          let waitTime = 2000; // Default 2 seconds
+
+          if (resetAfter) {
+            waitTime = parseInt(resetAfter) * 1000; // Convert to milliseconds
+          } else if (resetTime) {
+            const resetTimestamp = parseInt(resetTime) * 1000;
+            waitTime = Math.max(resetTimestamp - Date.now(), 1000);
+          }
+
+          console.log(`Rate limit approaching, waiting ${waitTime}ms...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+        }
       } catch (error) {
         failedPosts++;
         console.error(`Error processing tweet ${tweet.id}:`, error);
@@ -161,9 +192,9 @@ async function doTheThing(env: Env) {
     );
 
     // Only update last_fetched if we processed tweets successfully
-    if (successfulPosts > 0) {
+    if (successfulPosts > 0 && latestSuccessfulPost) {
       try {
-        await env.TWITTER_DISCORD_FORWARDER_KV.put("last_fetched", new Date().toISOString(), {
+        await env.TWITTER_DISCORD_FORWARDER_KV.put("last_fetched_post", latestSuccessfulPost, {
           metadata: { updatedBy: "worker" },
         });
       } catch (error) {
