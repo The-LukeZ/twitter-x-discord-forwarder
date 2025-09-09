@@ -1,0 +1,27 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "twitter-x-discord-forwarder",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-09-06",
+  "observability": {
+    "enabled": true,
+  },
+  "triggers": {
+    "crons": ["*/20 * * * *"], // We run this every 20 minutes because Twitter has a rate limit of 1 request per 15 minutes on free plan...
+  },
+  "compatibility_flags": ["nodejs_compat"],
+  "kv_namespaces": [
+    {
+      "binding": "TWITTER_DISCORD_FORWARDER_KV",
+      "id": "<your_kv_namespace_id>",
+    },
+  ],
+  "vars": {
+    "TARGET_USERNAME": "<your_twitter_username_without_@>",
+    "TARGET_USER_ID": "<your_twitter_user_id>",
+  },
+}

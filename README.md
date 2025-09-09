@@ -24,7 +24,10 @@ Forwards Tweets (from X) to Discord Webhooks
    - `DISCORD_WEBHOOK_TOKEN`: Your Discord Webhook Token
    - `WORKER_SECRET`: A random string to secure your endpoint (for manual triggering) If not set, manual triggering will be disabled.
 
+5. Create a KV namespace in Cloudflare and bind it to the Worker in `wrangler.jsonc` as `TWITTER_DISCORD_FORWARDER_KV` (literally just )
+
 5. Login with Wrangler using `pnpx wrangler login`.
+
 6. Deploy the Worker with `pnpm run deploy`.
 
 ## License
